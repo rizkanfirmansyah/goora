@@ -1,0 +1,64 @@
+package main
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"log"
+
+	_ "github.com/godror/godror"
+)
+
+func main() {
+	// Replace these values with your database credentials
+	username := "xcode"
+	password := "password"
+	host := "localhost"
+	port := 1521
+	serviceName := "XEPDB1"
+
+	// Construct the Oracle DSN (Data Source Name)
+	dsn := fmt.Sprintf("%s/%s@//%s:%d/%s", username, password, host, port, serviceName)
+
+	// Open a connection to the Oracle database
+	db, err := sql.Open("godror", dsn)
+	if err != nil {
+		log.Fatalf("Error opening database connection: %v", err)
+	}
+	defer db.Close()
+
+	// Test the connection
+	err = db.Ping()
+	if err != nil {
+		log.Fatalf("Error pinging the database: %v", err)
+	}
+
+	log.Println("Successfully connected to the Oracle database!")
+
+	// Mengeksekusi query SELECT
+	rows, err := db.QueryContext(context.Background(), "SELECT * FROM test")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer rows.Close()
+
+	// Mengambil data dari setiap baris
+	var (
+		test int
+		text string
+	)
+
+	for rows.Next() {
+		err := rows.Scan(&test, &text)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		fmt.Printf("test: %d, text: %s\n", test, text)
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Fatal(err)
+	}
+
+}
