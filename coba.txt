@@ -1,0 +1,89 @@
+package main
+
+import (
+	"database/sql"
+	"fmt"
+	"log"
+
+	_ "github.com/lib/pq"
+)
+
+const (
+	host     = "localhost"
+	port     = 5432
+	user     = "your_username"
+	password = "your_password"
+	dbname   = "your_database_name"
+)
+
+type Person struct {
+	Name  string
+	Email string
+}
+
+func main() {
+	// Constructing the connection string
+	connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
+		host, port, user, password, dbname)
+
+	// Opening a connection to the PostgreSQL database
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	// Checking the connection
+	err = db.Ping()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Example data for batch insert
+	var data []Person
+
+	// Function to push a new element into the data array
+	pushPerson := func(name, email string) {
+		data = append(data, Person{Name: name, Email: email})
+	}
+
+	// Pushing data into the array
+	pushPerson("John Doe", "john@example.com")
+	pushPerson("Jane Doe", "jane@example.com")
+
+	// Begin a transaction
+	tx, err := db.Begin()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			_ = tx.Rollback()
+			panic(p) // re-throw panic after Rollback
+		} else if err != nil {
+			_ = tx.Rollback()
+		} else {
+			err = tx.Commit()
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+	}()
+
+	// Prepare the SQL statement for batch insert
+	stmt, err := tx.Prepare("INSERT INTO your_table_name (name, email) VALUES ($1, $2)")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer stmt.Close()
+
+	// Execute the batch insert
+	for _, person := range data {
+		_, err = stmt.Exec(person.Name, person.Email)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	fmt.Println("Batch insert successful.")
+}
